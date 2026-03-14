@@ -29,7 +29,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
 
 const LOGISTICS_TYPES = [
   { value: "TERRESTRE", label: "TERRESTRE" },
@@ -202,14 +202,9 @@ export const ShipmentsPage = () => {
         await axiosInstance.post("/api/shipments", payload);
       } else {
         if (currentShipment.id == null) throw new Error("Falta id.");
-        const payload: Record<string, unknown> = {
+        const payload = {
           product_quantity: Number(currentShipment.product_quantity) || 1,
-          delivery_date: deliveryDate,
           shipping_price: Number(currentShipment.shipping_price) || 0,
-          vehicle_plate: isLand ? (currentShipment.vehicle_plate ?? null) : null,
-          warehouse_id: isLand ? (currentShipment.warehouse_id ? Number(currentShipment.warehouse_id) : null) : null,
-          fleet_number: !isLand ? (currentShipment.fleet_number ?? null) : null,
-          port_id: !isLand ? (currentShipment.port_id ? Number(currentShipment.port_id) : null) : null,
         };
         await axiosInstance.put(`/api/shipments/${currentShipment.id}`, payload);
       }
@@ -230,6 +225,7 @@ export const ShipmentsPage = () => {
     "product_quantity",
     "delivery_date",
     "shipping_price",
+    "final_price",
     "client_name",
     "product_name",
   ];
@@ -239,6 +235,7 @@ export const ShipmentsPage = () => {
     product_quantity: "Cantidad",
     delivery_date: "Fecha entrega",
     shipping_price: "Precio envío",
+    final_price: "Precio final",
     client_name: "Cliente",
     product_name: "Producto",
   };
@@ -276,7 +273,11 @@ export const ShipmentsPage = () => {
                   <TableCell key={col}>
                     {col === "delivery_date" && s[col]
                       ? new Date(s[col]).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })
-                      : String(s[col] ?? "")}
+                      : col === "shipping_price" || col === "final_price"
+                        ? s[col] != null
+                          ? Number(s[col]).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                          : ""
+                        : String(s[col] ?? "")}
                   </TableCell>
                 ))}
                 <TableCell>
@@ -312,6 +313,27 @@ export const ShipmentsPage = () => {
               <CircularProgress size={28} sx={{ color: "#06355F" }} />
               <Typography variant="body2" color="text.secondary">Cargando...</Typography>
             </Box>
+          ) : dialogMode === "edit" ? (
+            <Stack spacing={2} mt={1}>
+              <TextField
+                label="Cantidad"
+                type="number"
+                inputProps={{ min: 1 }}
+                value={currentShipment.product_quantity ?? ""}
+                onChange={(e) => handleDialogChange("product_quantity", e.target.value)}
+                required
+                fullWidth
+              />
+              <TextField
+                label="Precio envío"
+                type="number"
+                inputProps={{ min: 0, step: 0.01 }}
+                value={currentShipment.shipping_price ?? ""}
+                onChange={(e) => handleDialogChange("shipping_price", e.target.value)}
+                required
+                fullWidth
+              />
+            </Stack>
           ) : (
             <Stack spacing={2} mt={1}>
               <FormControl fullWidth>

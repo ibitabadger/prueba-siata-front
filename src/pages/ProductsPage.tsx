@@ -29,7 +29,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
 
 const LOGISTICS_TYPES = [
   { value: "TERRESTRE", label: "TERRESTRE" },
