@@ -88,9 +88,9 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           }}
         >
           <img
-            src="/src/assets/logo_logistica.png"
+            src="public/logo_logistica.png"
             alt="Logo"
-            style={{ paddingTop: "30%", width: "70%", maxWidth: 160, objectFit: "contain" }}
+            style={{ width: "70%", maxWidth: 160, objectFit: "contain" }}
           />
         </Box>
       </Box>
@@ -190,29 +190,6 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#0b1120" }}>
-      {/* AppBar */}
-      <AppBar
-        position="fixed"
-        sx={{
-          zIndex: (theme) => theme.zIndex.drawer + 1,
-          bgcolor: "#06355F",
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: "none" } }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div">
-            Panel de control - Plataforma Logística
-          </Typography>
-        </Toolbar>
-      </AppBar>
 
       {/* Drawer para móvil */}
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
