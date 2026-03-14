@@ -189,7 +189,34 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "#0b1120" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      {/* AppBar fija con el título — arranca después del sidebar en desktop */}
+      <AppBar
+        position="fixed"
+        elevation={1}
+        sx={{
+          zIndex: (theme) => theme.zIndex.drawer - 1,
+          bgcolor: "#ffffff",
+          color: "black",
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
+        }}
+      >
+        <Toolbar>
+          <IconButton
+            color="inherit"
+            aria-label="abrir menú"
+            edge="start"
+            onClick={handleDrawerToggle}
+            sx={{ mr: 2, display: { sm: "none" } }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Typography variant="h6" color="black" fontWeight="bold">
+            Panel de control de plataforma logística
+          </Typography>
+        </Toolbar>
+      </AppBar>
 
       {/* Drawer para móvil */}
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
@@ -197,15 +224,10 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           variant="temporary"
           open={mobileOpen}
           onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
+          ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: "block", sm: "none" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
         >
           {drawer}
@@ -216,10 +238,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           variant="permanent"
           sx={{
             display: { xs: "none", sm: "block" },
-            "& .MuiDrawer-paper": {
-              boxSizing: "border-box",
-              width: drawerWidth,
-            },
+            "& .MuiDrawer-paper": { boxSizing: "border-box", width: drawerWidth },
           }}
           open
         >
@@ -233,8 +252,8 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         sx={{
           flexGrow: 1,
           p: 3,
+          mt: "64px",
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8,
           bgcolor: "#ffffff",
           color: "text.primary",
         }}
