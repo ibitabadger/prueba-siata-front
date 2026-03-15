@@ -22,7 +22,7 @@ export const AuthLayout = () => {
           }}
         >
           <Stack spacing={1} alignItems="center">
-          <img src="logo_logistica.png" alt="Logo" width="60%" height="60%" />
+          <img src="/logo_logistica.png" alt="Logo" width="60%" height="60%" />
             
             <Box textAlign="center">
               <Typography variant="h4" fontWeight={600}>
