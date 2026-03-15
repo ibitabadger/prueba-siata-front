@@ -8,6 +8,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
+  FormHelperText,
   IconButton,
   InputLabel,
   MenuItem,
@@ -28,6 +29,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
+import { parseApiError } from "../utils/parseApiError";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
 
@@ -78,6 +81,22 @@ export const ShipmentsPage = () => {
   const [currentShipment, setCurrentShipment] = useState<Shipment>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [shipmentToDelete, setShipmentToDelete] = useState<Shipment | null>(null);
+
+  const [trackingError, setTrackingError] = useState<string | null>(null);
+  const [plateError, setPlateError] = useState<string | null>(null);
+  const [fleetError, setFleetError] = useState<string | null>(null);
+  const [shippingPriceError, setShippingPriceError] = useState<string | null>(null);
+  const [clientError, setClientError] = useState<string | null>(null);
+  const [productError, setProductError] = useState<string | null>(null);
+  const [deliveryDateError, setDeliveryDateError] = useState<string | null>(null);
+  const [warehouseError, setWarehouseError] = useState<string | null>(null);
+  const [portError, setPortError] = useState<string | null>(null);
+
+  const TRACKING_REGEX = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z0-9]{10}$/;
+  const PLATE_REGEX = /^[A-Z]{3}[0-9]{3}$/;
+  const FLEET_REGEX = /^[A-Z]{3}[0-9]{4}[A-Z]$/;
 
   const [clients, setClients] = useState<{ id: number; name?: string }[]>([]);
   const [products, setProducts] = useState<{ id: number; name?: string }[]>([]);
@@ -105,7 +124,7 @@ export const ShipmentsPage = () => {
             : [];
       setShipments(data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al cargar los envíos.");
+      setError(parseApiError(err, "Error al cargar los envíos."));
     } finally {
       setLoading(false);
     }
@@ -137,6 +156,15 @@ export const ShipmentsPage = () => {
     setDialogMode("create");
     setCurrentShipment({ logistics_type: "TERRESTRE" });
     setLoadingDetail(false);
+    setTrackingError(null);
+    setPlateError(null);
+    setFleetError(null);
+    setShippingPriceError(null);
+    setClientError(null);
+    setProductError(null);
+    setDeliveryDateError(null);
+    setWarehouseError(null);
+    setPortError(null);
     setDialogOpen(true);
   };
 
@@ -146,29 +174,36 @@ export const ShipmentsPage = () => {
     setCurrentShipment({ id: shipment.id });
     setDialogOpen(true);
     setLoadingDetail(true);
+    setShippingPriceError(null);
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/shipments/${shipment.id}`);
       setCurrentShipment(res.data);
     } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al cargar el envío.");
+      setError(parseApiError(err, "Error al cargar el envío."));
       setDialogOpen(false);
     } finally {
       setLoadingDetail(false);
     }
   };
 
-  const handleDelete = async (shipment: Shipment) => {
-    if (shipment.id == null) return;
-    if (!window.confirm("¿Eliminar este envío?")) return;
+  const handleDeleteRequest = (shipment: Shipment) => {
+    setShipmentToDelete(shipment);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (shipmentToDelete?.id == null) return;
+    setConfirmOpen(false);
     try {
       setSaving(true);
-      await axiosInstance.delete(`/api/shipments/${shipment.id}`);
+      await axiosInstance.delete(`/api/shipments/${shipmentToDelete.id}`);
       await fetchShipments();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al eliminar.");
+    } catch (err) {
+      setError(parseApiError(err, "Error al eliminar."));
     } finally {
       setSaving(false);
+      setShipmentToDelete(null);
     }
   };
 
@@ -177,6 +212,92 @@ export const ShipmentsPage = () => {
   };
 
   const handleSave = async () => {
+    if (dialogMode === "create") {
+      const isLandCheck = currentShipment.logistics_type === "TERRESTRE";
+      const trackingVal = (currentShipment.tracking_number ?? "").trim();
+      const plateVal = (currentShipment.vehicle_plate ?? "").trim();
+      const fleetVal = (currentShipment.fleet_number ?? "").trim();
+
+      let hasError = false;
+
+      if (!TRACKING_REGEX.test(trackingVal)) {
+        setTrackingError("Debe tener exactamente 10 caracteres con letras y números (no solo letras ni solo números).");
+        hasError = true;
+      } else {
+        setTrackingError(null);
+      }
+
+      if (isLandCheck) {
+        if (!PLATE_REGEX.test(plateVal)) {
+          setPlateError("Formato inválido. Debe ser 3 letras mayúsculas + 3 números. Ej: AAA123.");
+          hasError = true;
+        } else {
+          setPlateError(null);
+        }
+      } else {
+        setPlateError(null);
+        if (!FLEET_REGEX.test(fleetVal)) {
+          setFleetError("Formato inválido. Debe ser 3 letras + 4 números + 1 letra. Ej: AAA1234A.");
+          hasError = true;
+        } else {
+          setFleetError(null);
+        }
+      }
+
+      if (!currentShipment.shipping_price || Number(currentShipment.shipping_price) <= 0) {
+        setShippingPriceError("El precio de envío debe ser mayor a 0.");
+        hasError = true;
+      } else {
+        setShippingPriceError(null);
+      }
+
+      if (!currentShipment.client_id) {
+        setClientError("Debe seleccionar un cliente.");
+        hasError = true;
+      } else {
+        setClientError(null);
+      }
+
+      if (!currentShipment.product_id) {
+        setProductError("Debe seleccionar un producto.");
+        hasError = true;
+      } else {
+        setProductError(null);
+      }
+
+      if (!currentShipment.delivery_date) {
+        setDeliveryDateError("La fecha de entrega es obligatoria.");
+        hasError = true;
+      } else {
+        setDeliveryDateError(null);
+      }
+
+      if (isLandCheck) {
+        if (!currentShipment.warehouse_id) {
+          setWarehouseError("Debe seleccionar una bodega.");
+          hasError = true;
+        } else {
+          setWarehouseError(null);
+        }
+      } else {
+        setWarehouseError(null);
+        if (!currentShipment.port_id) {
+          setPortError("Debe seleccionar un puerto.");
+          hasError = true;
+        } else {
+          setPortError(null);
+        }
+      }
+
+      if (hasError) return;
+    } else {
+      if (!currentShipment.shipping_price || Number(currentShipment.shipping_price) <= 0) {
+        setShippingPriceError("El precio de envío debe ser mayor a 0.");
+        return;
+      }
+      setShippingPriceError(null);
+    }
+
     setSaving(true);
     setError(null);
     try {
@@ -211,8 +332,7 @@ export const ShipmentsPage = () => {
       setDialogOpen(false);
       await fetchShipments();
     } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? "Error al guardar.";
-      setError(Array.isArray(msg) ? msg.join(", ") : String(msg));
+      setError(parseApiError(err, "Error al guardar."));
     } finally {
       setSaving(false);
     }
@@ -283,7 +403,7 @@ export const ShipmentsPage = () => {
                 <TableCell>
                   <Stack direction="row" spacing={1}>
                     <IconButton size="small" color="primary" onClick={() => openEditDialog(s)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(s)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteRequest(s)}><DeleteIcon fontSize="small" /></IconButton>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -318,18 +438,28 @@ export const ShipmentsPage = () => {
               <TextField
                 label="Cantidad"
                 type="number"
-                inputProps={{ min: 1 }}
+                inputProps={{ min: 1, step: 1 }}
                 value={currentShipment.product_quantity ?? ""}
-                onChange={(e) => handleDialogChange("product_quantity", e.target.value)}
+                onChange={(e) => handleDialogChange("product_quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                helperText="Entero mayor a 0"
                 required
                 fullWidth
               />
               <TextField
                 label="Precio envío"
                 type="number"
-                inputProps={{ min: 0, step: 0.01 }}
+                inputProps={{ min: 0.01, step: 0.01 }}
                 value={currentShipment.shipping_price ?? ""}
-                onChange={(e) => handleDialogChange("shipping_price", e.target.value)}
+                onChange={(e) => {
+                  handleDialogChange("shipping_price", e.target.value);
+                  setShippingPriceError(
+                    !e.target.value || Number(e.target.value) <= 0
+                      ? "El precio de envío debe ser mayor a 0."
+                      : null
+                  );
+                }}
+                error={!!shippingPriceError}
+                helperText={shippingPriceError ?? "Mayor a 0"}
                 required
                 fullWidth
               />
@@ -349,19 +479,27 @@ export const ShipmentsPage = () => {
                 </Select>
               </FormControl>
               <TextField
-                label="Nº seguimiento (10 caracteres)"
+                label="Nº seguimiento"
+                placeholder="Ej: AB12CD34EF"
                 value={currentShipment.tracking_number ?? ""}
-                onChange={(e) => handleDialogChange("tracking_number", e.target.value.slice(0, 10))}
-                inputProps={{ maxLength: 10 }}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^A-Za-z0-9]/g, "").slice(0, 10);
+                  handleDialogChange("tracking_number", val);
+                  setTrackingError(val.length > 0 && !TRACKING_REGEX.test(val) ? "Debe tener exactamente 10 caracteres con letras y números (no solo letras ni solo números)." : null);
+                }}
+                inputProps={{ maxLength: 10, pattern: "[A-Za-z0-9]{10}" }}
+                error={!!trackingError}
+                helperText={trackingError ?? "10 caracteres alfanuméricos (letras y números). Ej: AB12CD34EF"}
                 required
                 fullWidth
               />
               <TextField
                 label="Cantidad"
                 type="number"
-                inputProps={{ min: 1 }}
+                inputProps={{ min: 1, step: 1 }}
                 value={currentShipment.product_quantity ?? ""}
-                onChange={(e) => handleDialogChange("product_quantity", e.target.value)}
+                onChange={(e) => handleDialogChange("product_quantity", Math.max(1, parseInt(e.target.value) || 1))}
+                helperText="Entero mayor a 0"
                 required
                 fullWidth
               />
@@ -370,92 +508,136 @@ export const ShipmentsPage = () => {
                 type="datetime-local"
                 InputLabelProps={{ shrink: true }}
                 value={toDatetimeLocal(currentShipment.delivery_date)}
-                onChange={(e) => handleDialogChange("delivery_date", fromDatetimeLocal(e.target.value))}
+                onChange={(e) => {
+                  handleDialogChange("delivery_date", fromDatetimeLocal(e.target.value));
+                  setDeliveryDateError(e.target.value ? null : "La fecha de entrega es obligatoria.");
+                }}
+                error={!!deliveryDateError}
+                helperText={deliveryDateError ?? ""}
                 required
                 fullWidth
               />
               <TextField
                 label="Precio envío"
                 type="number"
-                inputProps={{ min: 0, step: 0.01 }}
+                inputProps={{ min: 0.01, step: 0.01 }}
                 value={currentShipment.shipping_price ?? ""}
-                onChange={(e) => handleDialogChange("shipping_price", e.target.value)}
+                onChange={(e) => {
+                  handleDialogChange("shipping_price", e.target.value);
+                  setShippingPriceError(
+                    !e.target.value || Number(e.target.value) <= 0
+                      ? "El precio de envío debe ser mayor a 0."
+                      : null
+                  );
+                }}
+                error={!!shippingPriceError}
+                helperText={shippingPriceError ?? "Mayor a 0"}
                 required
                 fullWidth
               />
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!clientError}>
                 <InputLabel>Cliente</InputLabel>
                 <Select
                   value={currentShipment.client_id ?? ""}
                   label="Cliente"
-                  onChange={(e) => handleDialogChange("client_id", e.target.value)}
+                  onChange={(e) => {
+                    handleDialogChange("client_id", e.target.value);
+                    setClientError(e.target.value ? null : "Debe seleccionar un cliente.");
+                  }}
                   required
                 >
                   {clients.map((c) => (
                     <MenuItem key={c.id} value={c.id}>{c.name ?? `Cliente ${c.id}`}</MenuItem>
                   ))}
                 </Select>
+                {clientError && <FormHelperText>{clientError}</FormHelperText>}
               </FormControl>
-              <FormControl fullWidth>
+              <FormControl fullWidth error={!!productError}>
                 <InputLabel>Producto</InputLabel>
                 <Select
                   value={currentShipment.product_id ?? ""}
                   label="Producto"
-                  onChange={(e) => handleDialogChange("product_id", e.target.value)}
+                  onChange={(e) => {
+                    handleDialogChange("product_id", e.target.value);
+                    setProductError(e.target.value ? null : "Debe seleccionar un producto.");
+                  }}
                   required
                 >
                   {products.map((p) => (
                     <MenuItem key={p.id} value={p.id}>{p.name ?? `Producto ${p.id}`}</MenuItem>
                   ))}
                 </Select>
+                {productError && <FormHelperText>{productError}</FormHelperText>}
               </FormControl>
               {isLand && (
                 <>
                   <TextField
-                    label="Placa (AAA123)"
+                    label="Placa"
                     placeholder="AAA123"
                     value={currentShipment.vehicle_plate ?? ""}
-                    onChange={(e) => handleDialogChange("vehicle_plate", e.target.value.toUpperCase().slice(0, 6))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 6);
+                      handleDialogChange("vehicle_plate", val);
+                      setPlateError(val.length > 0 && !PLATE_REGEX.test(val) ? "Formato inválido. Debe ser 3 letras mayúsculas + 3 números. Ej: AAA123." : null);
+                    }}
+                    inputProps={{ maxLength: 6, pattern: "[A-Z]{3}[0-9]{3}" }}
+                    error={!!plateError}
+                    helperText={plateError ?? "Formato: AAA123 (3 letras mayúsculas + 3 números)"}
                     required
                     fullWidth
                   />
-                  <FormControl fullWidth>
+                  <FormControl fullWidth error={!!warehouseError}>
                     <InputLabel>Bodega</InputLabel>
                     <Select
                       value={currentShipment.warehouse_id ?? ""}
                       label="Bodega"
-                      onChange={(e) => handleDialogChange("warehouse_id", e.target.value)}
+                      onChange={(e) => {
+                        handleDialogChange("warehouse_id", e.target.value);
+                        setWarehouseError(e.target.value ? null : "Debe seleccionar una bodega.");
+                      }}
                       required
                     >
                       {warehouses.map((w) => (
                         <MenuItem key={w.id} value={w.id}>{w.name ?? `Bodega ${w.id}`}</MenuItem>
                       ))}
                     </Select>
+                    {warehouseError && <FormHelperText>{warehouseError}</FormHelperText>}
                   </FormControl>
                 </>
               )}
               {!isLand && (
                 <>
                   <TextField
-                    label="Nº flota (AAA1234A)"
+                    label="Nº flota"
                     placeholder="AAA1234A"
                     value={currentShipment.fleet_number ?? ""}
-                    onChange={(e) => handleDialogChange("fleet_number", e.target.value.toUpperCase().slice(0, 8))}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(0, 8);
+                      handleDialogChange("fleet_number", val);
+                      setFleetError(val.length > 0 && !FLEET_REGEX.test(val) ? "Formato inválido. Debe ser 3 letras + 4 números + 1 letra. Ej: AAA1234A." : null);
+                    }}
+                    inputProps={{ maxLength: 8, pattern: "[A-Z]{3}[0-9]{4}[A-Z]" }}
+                    error={!!fleetError}
+                    helperText={fleetError ?? "Formato: AAA1234A (3 letras + 4 números + 1 letra)"}
                     required
                     fullWidth
                   />
-                  <FormControl fullWidth>
+                  <FormControl fullWidth error={!!portError}>
                     <InputLabel>Puerto</InputLabel>
                     <Select
                       value={currentShipment.port_id ?? ""}
                       label="Puerto"
-                      onChange={(e) => handleDialogChange("port_id", e.target.value)}
+                      onChange={(e) => {
+                        handleDialogChange("port_id", e.target.value);
+                        setPortError(e.target.value ? null : "Debe seleccionar un puerto.");
+                      }}
                       required
                     >
                       {ports.map((p) => (
                         <MenuItem key={p.id} value={p.id}>{p.name ?? `Puerto ${p.id}`}</MenuItem>
                       ))}
                     </Select>
+                    {portError && <FormHelperText>{portError}</FormHelperText>}
                   </FormControl>
                 </>
               )}
@@ -464,9 +646,24 @@ export const ShipmentsPage = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saving || loadingDetail} color="inherit">Cancelar</Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving || loadingDetail} sx={{ bgcolor: "#06355F" }}>{saving ? "Guardando..." : "Guardar"}</Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            disabled={saving || loadingDetail || !!(trackingError || plateError || fleetError || shippingPriceError || clientError || productError || deliveryDateError || warehouseError || portError)}
+            sx={{ bgcolor: "#06355F" }}
+          >
+            {saving ? "Guardando..." : "Guardar"}
+          </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Eliminar envío"
+        message={`¿Seguro que deseas eliminar el envío con seguimiento "${shipmentToDelete?.tracking_number ?? ""}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setConfirmOpen(false); setShipmentToDelete(null); }}
+      />
     </Box>
   );
 };

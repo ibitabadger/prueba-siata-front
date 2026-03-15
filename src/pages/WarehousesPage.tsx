@@ -24,6 +24,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
+import { parseApiError } from "../utils/parseApiError";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
 
@@ -45,6 +47,9 @@ export const WarehousesPage = () => {
   const [currentWarehouse, setCurrentWarehouse] = useState<Warehouse>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [warehouseToDelete, setWarehouseToDelete] = useState<Warehouse | null>(null);
 
   const token = localStorage.getItem("auth_token");
   const axiosInstance = axios.create({
@@ -66,8 +71,8 @@ export const WarehousesPage = () => {
             ? raw.items
             : [];
       setWarehouses(data);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al cargar las bodegas.");
+    } catch (err) {
+      setError(parseApiError(err, "Error al cargar las bodegas."));
     } finally {
       setLoading(false);
     }
@@ -81,6 +86,7 @@ export const WarehousesPage = () => {
     setDialogMode("create");
     setCurrentWarehouse({});
     setLoadingDetail(false);
+    setNameError(null);
     setDialogOpen(true);
   };
 
@@ -90,37 +96,51 @@ export const WarehousesPage = () => {
     setCurrentWarehouse({ id: warehouse.id });
     setDialogOpen(true);
     setLoadingDetail(true);
+    setNameError(null);
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/warehouses/${warehouse.id}`);
       setCurrentWarehouse(res.data);
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al cargar la bodega.");
+    } catch (err) {
+      setError(parseApiError(err, "Error al cargar la bodega."));
       setDialogOpen(false);
     } finally {
       setLoadingDetail(false);
     }
   };
 
-  const handleDelete = async (warehouse: Warehouse) => {
-    if (warehouse.id == null) return;
-    if (!window.confirm("¿Eliminar esta bodega?")) return;
+  const handleDeleteRequest = (warehouse: Warehouse) => {
+    setWarehouseToDelete(warehouse);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (warehouseToDelete?.id == null) return;
+    setConfirmOpen(false);
     try {
       setSaving(true);
-      await axiosInstance.delete(`/api/warehouses/${warehouse.id}`);
+      await axiosInstance.delete(`/api/warehouses/${warehouseToDelete.id}`);
       await fetchWarehouses();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al eliminar.");
+    } catch (err) {
+      setError(parseApiError(err, "Error al eliminar."));
     } finally {
       setSaving(false);
+      setWarehouseToDelete(null);
     }
   };
 
   const handleDialogChange = (field: string, value: string | null) => {
+    if (field === "name") {
+      setNameError(!value?.trim() ? "El nombre es obligatorio." : null);
+    }
     setCurrentWarehouse((prev) => ({ ...prev, [field]: value === "" ? null : value }));
   };
 
   const handleSave = async () => {
+    if (!currentWarehouse.name?.trim()) {
+      setNameError("El nombre es obligatorio.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -136,8 +156,8 @@ export const WarehousesPage = () => {
       }
       setDialogOpen(false);
       await fetchWarehouses();
-    } catch (err: any) {
-      setError(err?.response?.data?.detail ?? "Error al guardar.");
+    } catch (err) {
+      setError(parseApiError(err, "Error al guardar."));
     } finally {
       setSaving(false);
     }
@@ -180,7 +200,7 @@ export const WarehousesPage = () => {
                 <TableCell>
                   <Stack direction="row" spacing={1}>
                     <IconButton size="small" color="primary" onClick={() => openEditDialog(w)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(w)}><DeleteIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => handleDeleteRequest(w)}><DeleteIcon fontSize="small" /></IconButton>
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -212,16 +232,24 @@ export const WarehousesPage = () => {
             </Box>
           ) : (
             <Stack spacing={2} mt={1}>
-              <TextField label="Nombre" value={currentWarehouse.name ?? ""} onChange={(e) => handleDialogChange("name", e.target.value)} required fullWidth />
+              <TextField label="Nombre" value={currentWarehouse.name ?? ""} onChange={(e) => handleDialogChange("name", e.target.value)} error={!!nameError} helperText={nameError ?? ""} required fullWidth />
               <TextField label="Ubicación" value={currentWarehouse.location ?? ""} onChange={(e) => handleDialogChange("location", e.target.value)} fullWidth />
             </Stack>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)} disabled={saving || loadingDetail} color="inherit">Cancelar</Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving || loadingDetail} sx={{ bgcolor: "#06355F" }}>{saving ? "Guardando..." : "Guardar"}</Button>
+          <Button onClick={handleSave} variant="contained" disabled={saving || loadingDetail || !!nameError} sx={{ bgcolor: "#06355F" }}>{saving ? "Guardando..." : "Guardar"}</Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Eliminar bodega"
+        message={`¿Seguro que deseas eliminar la bodega "${warehouseToDelete?.name ?? ""}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setConfirmOpen(false); setWarehouseToDelete(null); }}
+      />
     </Box>
   );
 };

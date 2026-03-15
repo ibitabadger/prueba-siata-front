@@ -8,6 +8,7 @@ import {
   Typography,
 } from "@mui/material";
 import axios from "axios";
+import { parseApiError } from "../utils/parseApiError";
 import { Link as RouterLink, useNavigate } from "react-router-dom";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
@@ -20,9 +21,16 @@ export const RegisterPage = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!EMAIL_REGEX.test(email)) {
+      setEmailError("El correo no tiene un formato válido.");
+      return;
+    }
     setError(null);
     setSuccess(null);
     setLoading(true);
@@ -34,11 +42,8 @@ export const RegisterPage = () => {
       });
       setSuccess("Usuario creado correctamente. Ahora puedes iniciar sesión.");
       setTimeout(() => navigate("/auth/login"), 1200);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ??
-        "Error al registrar el usuario. Intenta de nuevo.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al registrar el usuario. Intenta de nuevo."));
     } finally {
       setLoading(false);
     }
@@ -56,6 +61,7 @@ export const RegisterPage = () => {
           label="Nombre"
           value={name}
           onChange={(e) => setName(e.target.value)}
+          inputProps={{ minLength: 1 }}
           required
           fullWidth
         />
@@ -63,7 +69,13 @@ export const RegisterPage = () => {
           label="Correo electrónico"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setEmailError(e.target.value && !EMAIL_REGEX.test(e.target.value) ? "El correo no tiene un formato válido." : null);
+          }}
+          inputProps={{ maxLength: 254 }}
+          error={!!emailError}
+          helperText={emailError ?? ""}
           required
           fullWidth
         />
@@ -72,6 +84,8 @@ export const RegisterPage = () => {
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          inputProps={{ minLength: 6 }}
+          helperText="Mínimo 6 caracteres"
           required
           fullWidth
         />

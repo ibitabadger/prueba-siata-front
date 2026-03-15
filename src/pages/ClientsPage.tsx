@@ -24,6 +24,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
+import { parseApiError } from "../utils/parseApiError";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -45,6 +47,12 @@ export const ClientsPage = () => {
   const [loadingClientDetail, setLoadingClientDetail] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
+
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
   const token = localStorage.getItem("auth_token");
 
@@ -84,6 +92,8 @@ export const ClientsPage = () => {
     setDialogMode("create");
     setCurrentClient({});
     setLoadingClientDetail(false);
+    setNameError(null);
+    setEmailError(null);
     setDialogOpen(true);
   };
 
@@ -93,6 +103,8 @@ export const ClientsPage = () => {
     setCurrentClient({ id: client.id });
     setDialogOpen(true);
     setLoadingClientDetail(true);
+    setNameError(null);
+    setEmailError(null);
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/clients/${client.id}`);
@@ -107,23 +119,33 @@ export const ClientsPage = () => {
     }
   };
 
-  const handleDelete = async (client: Client) => {
-    if (!client.id) return;
-    if (!window.confirm("¿Seguro que deseas eliminar este cliente?")) return;
+  const handleDeleteRequest = (client: Client) => {
+    setClientToDelete(client);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!clientToDelete?.id) return;
+    setConfirmOpen(false);
     try {
       setSaving(true);
-      await axiosInstance.delete(`/api/clients/${client.id}`);
+      await axiosInstance.delete(`/api/clients/${clientToDelete.id}`);
       await fetchClients();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ?? "Error al eliminar el cliente.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al eliminar el cliente."));
     } finally {
       setSaving(false);
+      setClientToDelete(null);
     }
   };
 
   const handleDialogChange = (field: string, value: string) => {
+    if (field === "name") {
+      setNameError(!value.trim() ? "El nombre es obligatorio." : null);
+    }
+    if (field === "email") {
+      setEmailError(value && !EMAIL_REGEX.test(value) ? "El correo no tiene un formato válido." : null);
+    }
     setCurrentClient((prev) => ({
       ...prev,
       [field]: value,
@@ -131,6 +153,17 @@ export const ClientsPage = () => {
   };
 
   const handleSave = async () => {
+    let hasError = false;
+    if (!currentClient.name?.trim()) {
+      setNameError("El nombre es obligatorio.");
+      hasError = true;
+    }
+    const emailVal = currentClient.email ?? "";
+    if (emailVal && !EMAIL_REGEX.test(emailVal)) {
+      setEmailError("El correo no tiene un formato válido.");
+      hasError = true;
+    }
+    if (hasError) return;
     setSaving(true);
     setError(null);
     try {
@@ -237,7 +270,7 @@ export const ClientsPage = () => {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleDelete(client)}
+                      onClick={() => handleDeleteRequest(client)}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -304,6 +337,9 @@ export const ClientsPage = () => {
                 label="Nombre"
                 value={currentClient.name ?? ""}
                 onChange={(e) => handleDialogChange("name", e.target.value)}
+                inputProps={{ minLength: 1 }}
+                error={!!nameError}
+                helperText={nameError ?? ""}
                 required
                 fullWidth
               />
@@ -312,12 +348,19 @@ export const ClientsPage = () => {
                 type="email"
                 value={currentClient.email ?? ""}
                 onChange={(e) => handleDialogChange("email", e.target.value)}
+                inputProps={{ maxLength: 254 }}
+                error={!!emailError}
+                helperText={emailError ?? ""}
                 fullWidth
               />
               <TextField
                 label="Teléfono"
                 value={currentClient.phone ?? ""}
-                onChange={(e) => handleDialogChange("phone", e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, "");
+                  handleDialogChange("phone", val);
+                }}
+                inputProps={{ inputMode: "numeric", pattern: "[0-9]*", maxLength: 15 }}
                 fullWidth
               />
               <TextField
@@ -340,13 +383,21 @@ export const ClientsPage = () => {
           <Button
             onClick={handleSave}
             variant="contained"
-            disabled={saving || loadingClientDetail}
+            disabled={saving || loadingClientDetail || !!nameError || !!emailError}
             sx={{ bgcolor: "#06355F" }}
           >
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Eliminar cliente"
+        message={`¿Seguro que deseas eliminar al cliente "${clientToDelete?.name ?? ""}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setConfirmOpen(false); setClientToDelete(null); }}
+      />
     </Box>
   );
 };

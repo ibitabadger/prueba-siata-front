@@ -90,7 +90,7 @@ export const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           <img
             src="/logo_logistica.png"
             alt="Logo"
-            style={{ width: "70%", maxWidth: 160, objectFit: "contain" }}
+            style={{ width: "90%", maxWidth: 160, objectFit: "contain" }}
           />
         </Box>
       </Box>

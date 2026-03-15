@@ -28,6 +28,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
+import { parseApiError } from "../utils/parseApiError";
+import { ConfirmDialog } from "../components/ConfirmDialog";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
 
@@ -56,6 +58,9 @@ export const ProductsPage = () => {
   const [loadingProductDetail, setLoadingProductDetail] = useState(false);
 
   const [saving, setSaving] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   const token = localStorage.getItem("auth_token");
 
@@ -80,11 +85,8 @@ export const ProductsPage = () => {
             ? raw.items
             : [];
       setProducts(data);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ??
-        "Error al cargar los productos.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al cargar los productos."));
     } finally {
       setLoading(false);
     }
@@ -99,6 +101,7 @@ export const ProductsPage = () => {
     setDialogMode("create");
     setCurrentProduct({});
     setLoadingProductDetail(false);
+    setNameError(null);
     setDialogOpen(true);
   };
 
@@ -108,37 +111,43 @@ export const ProductsPage = () => {
     setCurrentProduct({ id: product.id });
     setDialogOpen(true);
     setLoadingProductDetail(true);
+    setNameError(null);
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/products/${product.id}`);
       setCurrentProduct(res.data);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ?? "Error al cargar el producto.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al cargar el producto."));
       setDialogOpen(false);
     } finally {
       setLoadingProductDetail(false);
     }
   };
 
-  const handleDelete = async (product: Product) => {
-    if (product.id == null) return;
-    if (!window.confirm("¿Seguro que deseas eliminar este producto?")) return;
+  const handleDeleteRequest = (product: Product) => {
+    setProductToDelete(product);
+    setConfirmOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (productToDelete?.id == null) return;
+    setConfirmOpen(false);
     try {
       setSaving(true);
-      await axiosInstance.delete(`/api/products/${product.id}`);
+      await axiosInstance.delete(`/api/products/${productToDelete.id}`);
       await fetchProducts();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ?? "Error al eliminar el producto.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al eliminar el producto."));
     } finally {
       setSaving(false);
+      setProductToDelete(null);
     }
   };
 
   const handleDialogChange = (field: string, value: string | null) => {
+    if (field === "name") {
+      setNameError(!value?.trim() ? "El nombre es obligatorio." : null);
+    }
     setCurrentProduct((prev) => ({
       ...prev,
       [field]: value === "" ? null : value,
@@ -146,6 +155,10 @@ export const ProductsPage = () => {
   };
 
   const handleSave = async () => {
+    if (!currentProduct.name?.trim()) {
+      setNameError("El nombre es obligatorio.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -163,10 +176,8 @@ export const ProductsPage = () => {
       }
       setDialogOpen(false);
       await fetchProducts();
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ?? "Error al guardar la información.";
-      setError(msg);
+    } catch (err) {
+      setError(parseApiError(err, "Error al guardar la información."));
     } finally {
       setSaving(false);
     }
@@ -249,7 +260,7 @@ export const ProductsPage = () => {
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => handleDelete(product)}
+                      onClick={() => handleDeleteRequest(product)}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
@@ -321,6 +332,8 @@ export const ProductsPage = () => {
                 label="Nombre"
                 value={currentProduct.name ?? ""}
                 onChange={(e) => handleDialogChange("name", e.target.value)}
+                error={!!nameError}
+                helperText={nameError ?? ""}
                 required
                 fullWidth
               />
@@ -360,13 +373,21 @@ export const ProductsPage = () => {
           <Button
             onClick={handleSave}
             variant="contained"
-            disabled={saving || loadingProductDetail}
+            disabled={saving || loadingProductDetail || !!nameError}
             sx={{ bgcolor: "#06355F" }}
           >
             {saving ? "Guardando..." : "Guardar"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Eliminar producto"
+        message={`¿Seguro que deseas eliminar el producto "${productToDelete?.name ?? ""}"? Esta acción no se puede deshacer.`}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setConfirmOpen(false); setProductToDelete(null); }}
+      />
     </Box>
   );
 };
