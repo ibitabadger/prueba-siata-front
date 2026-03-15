@@ -1,5 +1,8 @@
 # Prueba SIATA - EAFIT (Frontend)
 
+Se encuentra desplegado en: https://prueba-siata-front.vercel.app/
+
+
 ## Requisitos previos
 
 - **Node.js** (versión 18 o superior recomendada)
