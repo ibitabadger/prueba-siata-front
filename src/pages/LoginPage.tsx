@@ -45,7 +45,7 @@ export const LoginPage = () => {
       });
       const token = res.data.access_token;
       localStorage.setItem("auth_token", token);
-      navigate("/"); // luego podrás redirigir al dashboard
+      navigate("/"); 
     } catch (err) {
       setError(parseApiError(err, "Error al iniciar sesión. Intenta de nuevo."));
     } finally {

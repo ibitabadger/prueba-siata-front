@@ -1,33 +1,23 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  Paper,
-  CircularProgress,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 import { parseApiError } from "../utils/parseApiError";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { CrudTable } from "../components/CrudTable";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type Warehouse = {
   id?: number;
@@ -37,6 +27,12 @@ type Warehouse = {
 };
 
 type Mode = "create" | "edit";
+
+const WAREHOUSE_COLUMNS = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  { key: "location", label: "Ubicación" },
+];
 
 export const WarehousesPage = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -163,64 +159,27 @@ export const WarehousesPage = () => {
     }
   };
 
-  const columns = warehouses.length > 0 ? Object.keys(warehouses[0]).filter((k) => k !== "id") : ["name", "location"];
-
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Box>
-          <Typography variant="h5" fontWeight={600}>Bodegas</Typography>
-          <Typography variant="body2" color="text.secondary">Crear, editar y eliminar bodegas.</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ bgcolor: "#06355F" }}>
-          Nueva bodega
-        </Button>
-      </Stack>
+      <PageHeader
+        title="Bodegas"
+        subtitle="Crear, editar y eliminar bodegas."
+        buttonLabel="Nueva bodega"
+        onAdd={openCreateDialog}
+        error={error}
+        onErrorClose={() => setError(null)}
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-              {columns.map((col) => (
-                <TableCell key={col} sx={{ fontWeight: 600 }}>{col === "name" ? "Nombre" : col === "location" ? "Ubicación" : col}</TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {warehouses.map((w) => (
-              <TableRow key={w.id}>
-                <TableCell>{w.id}</TableCell>
-                {columns.map((col) => (
-                  <TableCell key={col}>{String(w[col] ?? "")}</TableCell>
-                ))}
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <IconButton size="small" color="primary" onClick={() => openEditDialog(w)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteRequest(w)}><DeleteIcon fontSize="small" /></IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && warehouses.length === 0 && (
-              <TableRow><TableCell colSpan={columns.length + 2}><Typography variant="body2" color="text.secondary">No hay bodegas.</Typography></TableCell></TableRow>
-            )}
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 3, gap: 2 }}>
-                    <CircularProgress size={24} sx={{ color: "#06355F" }} />
-                    <Typography variant="body2" color="text.secondary">Cargando bodegas...</Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <CrudTable<Warehouse>
+        columns={WAREHOUSE_COLUMNS}
+        data={warehouses}
+        loading={loading}
+        emptyMessage="No hay bodegas."
+        loadingMessage="Cargando bodegas..."
+        getRowKey={(row) => row.id!}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteRequest}
+      />
 
       <Dialog open={dialogOpen} onClose={() => !saving && !loadingDetail && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{dialogMode === "create" ? "Nueva bodega" : "Editar bodega"}</DialogTitle>

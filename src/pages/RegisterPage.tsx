@@ -73,7 +73,7 @@ export const RegisterPage = () => {
             setEmail(e.target.value);
             setEmailError(e.target.value && !EMAIL_REGEX.test(e.target.value) ? "El correo no tiene un formato válido." : null);
           }}
-          inputProps={{ maxLength: 254 }}
+          inputProps={{ maxLength: 40 }}
           error={!!emailError}
           helperText={emailError ?? ""}
           required

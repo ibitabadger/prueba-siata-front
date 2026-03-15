@@ -1,37 +1,27 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  Paper,
-  CircularProgress,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 import { parseApiError } from "../utils/parseApiError";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { CrudTable, type ColumnDef } from "../components/CrudTable";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const LOGISTICS_TYPES = [
   { value: "TERRESTRE", label: "TERRESTRE" },
@@ -46,6 +36,21 @@ type Product = {
 };
 
 type Mode = "create" | "edit";
+
+const columns: ColumnDef<Product>[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  {
+    key: "logistics_type",
+    label: "Tipo logística",
+    render: (row) =>
+      row.logistics_type === "TERRESTRE"
+        ? "TERRESTRE"
+        : row.logistics_type === "MARITIMO"
+          ? "MARITIMO"
+          : String(row.logistics_type ?? ""),
+  },
+];
 
 export const ProductsPage = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -183,123 +188,27 @@ export const ProductsPage = () => {
     }
   };
 
-  const columns =
-    products.length > 0
-      ? Object.keys(products[0]).filter((k) => k !== "id")
-      : ["name", "logistics_type"];
-
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={600}>
-            Productos
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Administración de productos.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openCreateDialog}
-          sx={{ bgcolor: "#06355F" }}
-        >
-          Nuevo producto
-        </Button>
-      </Stack>
+      <PageHeader
+        title="Productos"
+        subtitle="Administración de productos."
+        buttonLabel="Nuevo producto"
+        onAdd={openCreateDialog}
+        error={error}
+        onErrorClose={() => setError(null)}
+      />
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-              {columns.map((col) => (
-                <TableCell key={col} sx={{ fontWeight: 600 }}>
-                  {col === "name" ? "Nombre" : col === "logistics_type" ? "Tipo logística" : col}
-                </TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {products.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>{product.id}</TableCell>
-                {columns.map((col) => (
-                  <TableCell key={col}>
-                    {col === "logistics_type"
-                      ? product[col] === "TERRESTRE"
-                        ? "TERRESTRE"
-                        : product[col] === "MARITIMO"
-                          ? "MARITIMO"
-                          : String(product[col] ?? "")
-                      : String(product[col] ?? "")}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => openEditDialog(product)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteRequest(product)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && products.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Typography variant="body2" color="text.secondary">
-                    No hay productos registrados.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      py: 3,
-                      gap: 2,
-                    }}
-                  >
-                    <CircularProgress size={24} sx={{ color: "#06355F" }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Cargando productos...
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <CrudTable<Product>
+        columns={columns}
+        data={products}
+        loading={loading}
+        emptyMessage="No hay productos registrados."
+        loadingMessage="Cargando productos..."
+        getRowKey={(row) => row.id!}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteRequest}
+      />
 
       <Dialog
         open={dialogOpen}

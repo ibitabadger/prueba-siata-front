@@ -1,38 +1,28 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControl,
   FormHelperText,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  Paper,
-  CircularProgress,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 import { parseApiError } from "../utils/parseApiError";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { CrudTable, type ColumnDef } from "../components/CrudTable";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const LOGISTICS_TYPES = [
   { value: "TERRESTRE", label: "TERRESTRE" },
@@ -338,92 +328,46 @@ export const ShipmentsPage = () => {
     }
   };
 
-  const tableColumns = [
-    "id",
-    "logistics_type",
-    "tracking_number",
-    "product_quantity",
-    "delivery_date",
-    "shipping_price",
-    "final_price",
-    "client_name",
-    "product_name",
+  const formatPrice = (val: any) =>
+    val != null ? Number(val).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : "";
+
+  const SHIPMENT_COLUMNS: ColumnDef<Shipment>[] = [
+    { key: "id", label: "ID" },
+    { key: "logistics_type", label: "Tipo" },
+    { key: "tracking_number", label: "Nº seguimiento" },
+    { key: "product_quantity", label: "Cantidad" },
+    { key: "delivery_date", label: "Fecha entrega", render: (row) =>
+        row.delivery_date ? new Date(row.delivery_date).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" }) : "" },
+    { key: "shipping_price", label: "Precio envío", render: (row) => formatPrice(row.shipping_price) },
+    { key: "final_price", label: "Precio final", render: (row) => formatPrice(row.final_price) },
+    { key: "client_name", label: "Cliente" },
+    { key: "product_name", label: "Producto" },
   ];
-  const colLabels: Record<string, string> = {
-    logistics_type: "Tipo",
-    tracking_number: "Nº seguimiento",
-    product_quantity: "Cantidad",
-    delivery_date: "Fecha entrega",
-    shipping_price: "Precio envío",
-    final_price: "Precio final",
-    client_name: "Cliente",
-    product_name: "Producto",
-  };
 
   const isLand = currentShipment.logistics_type === "TERRESTRE";
 
   return (
     <Box sx={{ maxWidth: 1400, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Box>
-          <Typography variant="h5" fontWeight={600}>Envíos</Typography>
-          <Typography variant="body2" color="text.secondary">Crear, editar y eliminar envíos terrestres y marítimos.</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ bgcolor: "#06355F" }}>
-          Nuevo envío
-        </Button>
-      </Stack>
+      <PageHeader
+        title="Envíos"
+        subtitle="Crear, editar y eliminar envíos terrestres y marítimos."
+        buttonLabel="Nuevo envío"
+        onAdd={openCreateDialog}
+        error={error}
+        onErrorClose={() => setError(null)}
+        maxWidth={1400}
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              {tableColumns.map((col) => (
-                <TableCell key={col} sx={{ fontWeight: 600 }}>{colLabels[col] ?? col}</TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {shipments.map((s) => (
-              <TableRow key={s.id}>
-                {tableColumns.map((col) => (
-                  <TableCell key={col}>
-                    {col === "delivery_date" && s[col]
-                      ? new Date(s[col]).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })
-                      : col === "shipping_price" || col === "final_price"
-                        ? s[col] != null
-                          ? Number(s[col]).toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                          : ""
-                        : String(s[col] ?? "")}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <IconButton size="small" color="primary" onClick={() => openEditDialog(s)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteRequest(s)}><DeleteIcon fontSize="small" /></IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && shipments.length === 0 && (
-              <TableRow><TableCell colSpan={tableColumns.length + 1}><Typography variant="body2" color="text.secondary">No hay envíos.</Typography></TableCell></TableRow>
-            )}
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={tableColumns.length + 1}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 3, gap: 2 }}>
-                    <CircularProgress size={24} sx={{ color: "#06355F" }} />
-                    <Typography variant="body2" color="text.secondary">Cargando envíos...</Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <CrudTable<Shipment>
+        columns={SHIPMENT_COLUMNS}
+        data={shipments}
+        loading={loading}
+        emptyMessage="No hay envíos."
+        loadingMessage="Cargando envíos..."
+        getRowKey={(row) => row.id!}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteRequest}
+      />
 
       <Dialog open={dialogOpen} onClose={() => !saving && !loadingDetail && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{dialogMode === "create" ? "Nuevo envío" : "Editar envío"}</DialogTitle>

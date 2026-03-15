@@ -1,35 +1,25 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  Paper,
-  CircularProgress,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 import { parseApiError } from "../utils/parseApiError";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { CrudTable, type ColumnDef } from "../components/CrudTable";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 type Port = {
   id?: number;
@@ -40,6 +30,13 @@ type Port = {
 };
 
 type Mode = "create" | "edit";
+
+const PORT_COLUMNS: ColumnDef<Port>[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  { key: "is_international", label: "Internacional", render: (row) => (row.is_international ? "Sí" : "No") },
+  { key: "location", label: "Ubicación" },
+];
 
 export const PortsPage = () => {
   const [ports, setPorts] = useState<Port[]>([]);
@@ -167,68 +164,27 @@ export const PortsPage = () => {
     }
   };
 
-  const columns = ports.length > 0 ? Object.keys(ports[0]).filter((k) => k !== "id") : ["name", "is_international", "location"];
-
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={3}>
-        <Box>
-          <Typography variant="h5" fontWeight={600}>Puertos</Typography>
-          <Typography variant="body2" color="text.secondary">Crear, editar y eliminar puertos.</Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateDialog} sx={{ bgcolor: "#06355F" }}>
-          Nuevo puerto
-        </Button>
-      </Stack>
+      <PageHeader
+        title="Puertos"
+        subtitle="Crear, editar y eliminar puertos."
+        buttonLabel="Nuevo puerto"
+        onAdd={openCreateDialog}
+        error={error}
+        onErrorClose={() => setError(null)}
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-              {columns.map((col) => (
-                <TableCell key={col} sx={{ fontWeight: 600 }}>
-                  {col === "name" ? "Nombre" : col === "is_international" ? "Internacional" : col === "location" ? "Ubicación" : col}
-                </TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {ports.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell>{p.id}</TableCell>
-                {columns.map((col) => (
-                  <TableCell key={col}>
-                    {col === "is_international" ? (p[col] ? "Sí" : "No") : String(p[col] ?? "")}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <IconButton size="small" color="primary" onClick={() => openEditDialog(p)}><EditIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteRequest(p)}><DeleteIcon fontSize="small" /></IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && ports.length === 0 && (
-              <TableRow><TableCell colSpan={columns.length + 2}><Typography variant="body2" color="text.secondary">No hay puertos.</Typography></TableCell></TableRow>
-            )}
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", py: 3, gap: 2 }}>
-                    <CircularProgress size={24} sx={{ color: "#06355F" }} />
-                    <Typography variant="body2" color="text.secondary">Cargando puertos...</Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <CrudTable<Port>
+        columns={PORT_COLUMNS}
+        data={ports}
+        loading={loading}
+        emptyMessage="No hay puertos."
+        loadingMessage="Cargando puertos..."
+        getRowKey={(row) => row.id!}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteRequest}
+      />
 
       <Dialog open={dialogOpen} onClose={() => !saving && !loadingDetail && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{dialogMode === "create" ? "Nuevo puerto" : "Editar puerto"}</DialogTitle>

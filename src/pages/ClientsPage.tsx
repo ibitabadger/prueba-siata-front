@@ -1,31 +1,22 @@
 import { useEffect, useState } from "react";
 import {
-  Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
-  Paper,
-  CircularProgress,
 } from "@mui/material";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import AddIcon from "@mui/icons-material/Add";
 import axios from "axios";
 import { parseApiError } from "../utils/parseApiError";
 import { ConfirmDialog } from "../components/ConfirmDialog";
+import { PageHeader } from "../components/PageHeader";
+import { CrudTable } from "../components/CrudTable";
+import type { ColumnDef } from "../components/CrudTable";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -35,6 +26,14 @@ type Client = {
 };
 
 type Mode = "create" | "edit";
+
+const COLUMNS: ColumnDef<Client>[] = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Nombre" },
+  { key: "email", label: "Email" },
+  { key: "phone", label: "Teléfono" },
+  { key: "company", label: "Compañia" },
+];
 
 export const ClientsPage = () => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -69,7 +68,6 @@ export const ClientsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      // Ajusta la ruta si tu backend usa otra (por ejemplo /api/clients)
       const res = await axiosInstance.get("/api/clients");
       const data: Client[] = res.data ?? [];
       setClients(Array.isArray(data) ? data : []);
@@ -192,124 +190,28 @@ export const ClientsPage = () => {
     }
   };
 
-  const columns =
-    clients.length > 0 ? Object.keys(clients[0]).filter((k) => k !== "id") : [];
-
   return (
-    <Box
-      sx={{
-        maxWidth: 1200,
-        mx: "auto",
-      }}
-    >
-      <Stack
-        direction="row"
-        alignItems="center"
-        justifyContent="space-between"
-        mb={3}
-      >
-        <Box>
-          <Typography variant="h5" fontWeight={600}>
-            Clientes
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Administración de clientes.
-          </Typography>
-        </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={openCreateDialog}
-          sx={{ bgcolor: "#06355F" }}
-        >
-          Nuevo cliente
-        </Button>
-      </Stack>
+    <Box sx={{ maxWidth: 1200, mx: "auto" }}>
+      <PageHeader
+        title="Clientes"
+        subtitle="Administración de clientes."
+        buttonLabel="Nuevo cliente"
+        onAdd={openCreateDialog}
+        error={error}
+        onErrorClose={() => setError(null)}
+        maxWidth={1200}
+      />
 
-      {error && (
-        <Alert
-          severity="error"
-          sx={{ mb: 2 }}
-          onClose={() => setError(null)}
-        >
-          {error}
-        </Alert>
-      )}
-
-      <TableContainer component={Paper}>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>ID</TableCell>
-              {columns.map((col) => (
-                <TableCell key={col} sx={{ fontWeight: 600 }}>
-                  {col}
-                </TableCell>
-              ))}
-              <TableCell sx={{ fontWeight: 600 }}>Acciones</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {clients.map((client) => (
-              <TableRow key={client.id ?? JSON.stringify(client)}>
-                <TableCell>{client.id}</TableCell>
-                {columns.map((col) => (
-                  <TableCell key={col}>
-                    {String(client[col] ?? "")}
-                  </TableCell>
-                ))}
-                <TableCell>
-                  <Stack direction="row" spacing={1}>
-                    <IconButton
-                      size="small"
-                      color="primary"
-                      onClick={() => openEditDialog(client)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => handleDeleteRequest(client)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && clients.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Typography variant="body2" color="text.secondary">
-                    No hay clientes registrados.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {loading && (
-              <TableRow>
-                <TableCell colSpan={columns.length + 2}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      py: 3,
-                      gap: 2,
-                    }}
-                  >
-                    <CircularProgress size={24} sx={{ color: "#06355F" }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Cargando clientes...
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <CrudTable<Client>
+        columns={COLUMNS}
+        data={clients}
+        loading={loading}
+        emptyMessage="No hay clientes registrados."
+        loadingMessage="Cargando clientes..."
+        getRowKey={(row) => row.id ?? JSON.stringify(row)}
+        onEdit={openEditDialog}
+        onDelete={handleDeleteRequest}
+      />
 
       <Dialog open={dialogOpen} onClose={() => !saving && setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -401,4 +303,3 @@ export const ClientsPage = () => {
     </Box>
   );
 };
-
